@@ -83,7 +83,6 @@ FFmpegCommandBuilder& FFmpegCommandBuilder::addCodecStrictness() {
     addFlag("-strict",
             Utils::enumToString<CodecStrictness>(m_ffmpegConfig.getCodecStrictness(),
                                                  m_ffmpegConfig.getCodecStrictnessAsString()));
-
     return *this;
 }
 
