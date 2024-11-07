@@ -13,8 +13,8 @@ namespace fs = std::filesystem;
 namespace MediaProcessor {
 constexpr double DEFAULT_OVERLAP_DURATION = 0.5;
 
-enum class AudioCodec { AAC, MP3, FLAC, OPUS, COPY, UNKNOWN };
-enum class VideoCodec { H264, H265, VP8, VP9, COPY, UNKNOWN };
+enum class AudioCodec { AAC, MP3, FLAC, OPUS, UNKNOWN };
+enum class VideoCodec { H264, H265, VP8, VP9, UNKNOWN };
 enum class CodecStrictness { VERY, STRICT, NORMAL, UNOFFICIAL, EXPERIMENTAL };
 
 /**
@@ -58,7 +58,6 @@ class FFmpegConfigManager {
     // Value Map Getters
     const std::unordered_map<AudioCodec, std::string>& getAudioCodecAsString() const;
     const std::unordered_map<VideoCodec, std::string>& getVideoCodecAsString() const;
-
     const std::unordered_map<CodecStrictness, std::string>& getCodecStrictnessAsString() const;
 
     friend class FFmpegController;
