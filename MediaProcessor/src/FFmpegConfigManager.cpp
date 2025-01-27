@@ -1,5 +1,11 @@
 #include "FFmpegConfigManager.h"
 
+#include <unistd.h>
+
+#include <filesystem>
+#include <iostream>
+#include <stdexcept>
+
 namespace MediaProcessor {
 
 FFmpegConfigManager::FFmpegConfigManager() {
@@ -9,11 +15,9 @@ FFmpegConfigManager::FFmpegConfigManager() {
                             {AudioCodec::OPUS, "opus"},
                             {AudioCodec::UNKNOWN, "unknown"}};
 
-    m_videoCodecAsString = {{VideoCodec::H264, "libx264"},
-                            {VideoCodec::H265, "libx265"},
-                            {VideoCodec::VP8, "libvpx"},
-                            {VideoCodec::VP9, "libvpx-vp9"},
-                            {VideoCodec::UNKNOWN, "unknown"}};
+    m_videoCodecAsString = {{VideoCodec::H264, "libx264"}, {VideoCodec::H265, "libx265"},
+                            {VideoCodec::VP8, "libvpx"},   {VideoCodec::VP9, "libvpx-vp9"},
+                            {VideoCodec::COPY, "copy"},    {VideoCodec::UNKNOWN, "unknown"}};
 
     m_codecStrictnessAsString = {{CodecStrictness::VERY, "very"},
                                  {CodecStrictness::STRICT, "strict"},
@@ -32,10 +36,18 @@ void FFmpegConfigManager::setCodecStrictness(CodecStrictness strictness) {
 }
 
 void FFmpegConfigManager::setInputFilePath(const fs::path inputFilePath) {
-    m_globalSettings.inputFilePath = inputFilePath;
+    int read = access((inputFilePath.string().c_str()), R_OK);
+    if (read < 0 && errno == EACCES) {
+        throw std::runtime_error("Insufficient permissions to read input file!");
+    } else if (read < 0) {
+        throw std::runtime_error("Unable to read input file, are you sure it exists?");
+    } else {
+        m_globalSettings.inputFilePath = inputFilePath;
+    }
 }
 
 void FFmpegConfigManager::setOutputFilePath(const fs::path outputFilePath) {
+    Utils::ensureDirectoryExists(outputFilePath);
     m_globalSettings.outputFilePath = outputFilePath;
 }
 
@@ -84,6 +96,10 @@ int FFmpegConfigManager::getAudioChannels() const {
 // Video Setters
 void FFmpegConfigManager::setVideoCodec(VideoCodec codec) {
     m_videoSettings.codec = codec;
+    if (codec != VideoCodec::COPY) {
+        std::cerr << "Warning: Consider setting video codec to COPY if quality or conversion time are "
+                "unacceptable" << std::endl;
+    }
 }
 
 // Video Getters
@@ -114,6 +130,65 @@ void FFmpegConfigManager::updateSettings(const struct FFmpegGlobalSettings& glob
     m_globalSettings = globalSettings;
     m_audioSettings = audioSettings;
     m_videoSettings = videoSettings;
+}
+
+// Validate Settings
+template <typename T>
+void FFmpegConfigManager::validateOption(const T optionValue, const T optionMax) {
+    if (optionValue > optionMax) {
+        std::string codec =
+            Utils::enumToString<AudioCodec>(getAudioCodec(), getAudioCodecAsString());
+        throw std::runtime_error("Invalid Audio Option \"" + std::to_string(optionValue) +
+                                 "\" : FFmpeg accepts a maximum of " + std::to_string(optionMax) +
+                                 " for " + codec);
+    }
+}
+
+template <typename T, std::size_t N>
+void FFmpegConfigManager::validateOption(const T optionValue,
+                                         const std::array<T, N>& validOptions) {
+    for (const T& valid : validOptions) {
+        if (m_audioSettings.sampleRate == valid) return;
+    }
+    std::string codec = Utils::enumToString<AudioCodec>(getAudioCodec(), getAudioCodecAsString());
+    std::ostringstream ssError;
+    ssError << "Invalid " + codec + " sample rate: FFmpeg supports ";
+    for (const T& opt : validOptions) {
+        ssError << opt << " ";
+    }
+    throw std::runtime_error(ssError.str());
+}
+
+// Validate Settings
+void FFmpegConfigManager::validateAudio() {
+    switch (m_audioSettings.codec) {
+        case AudioCodec::AAC:
+            validateOption(m_audioSettings.numChannels, AAC_MAX_CHANNELS);
+            validateOption(m_audioSettings.sampleRate, AAC_SAMPLE_RATES);
+            break;
+        case AudioCodec::MP3:
+            validateOption(m_audioSettings.numChannels, MP3_MAX_CHANNELS);
+            validateOption(m_audioSettings.sampleRate, MP3_SAMPLE_RATES);
+            break;
+        case AudioCodec::FLAC:
+            validateOption(m_audioSettings.numChannels, FLAC_MAX_CHANNELS);
+            validateOption(m_audioSettings.sampleRate, FLAC_MAX_SAMPLE_RATE);
+            break;
+        case AudioCodec::OPUS:
+            validateOption(m_audioSettings.numChannels, OPUS_MAX_CHANNELS);
+            validateOption(m_audioSettings.sampleRate, OPUS_SAMPLE_RATES);
+            break;
+        case AudioCodec::UNKNOWN:
+            setAudioCodec(AudioCodec::AAC);
+            setAudioChannels(2);
+            setAudioSampleRate(48000);
+            std::cerr << "Warning: Audio codec cannot be UNKNOWN, default to AAC @ 48000 Hz with 2 "
+                         "channels"
+                      << std::endl;
+            break;
+        default:
+            return;
+    }
 }
 
 }  // namespace MediaProcessor
