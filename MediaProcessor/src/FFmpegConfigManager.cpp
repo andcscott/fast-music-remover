@@ -92,8 +92,9 @@ int FFmpegConfigManager::getAudioChannels() const {
 void FFmpegConfigManager::setVideoCodec(VideoCodec codec) {
     m_videoSettings.codec = codec;
     if (codec != VideoCodec::COPY) {
-        std::cerr << "Warning: Consider setting video codec to COPY if quality or conversion time are "
-                "unacceptable" << std::endl;
+        std::cerr << "Warning: Consider setting the video codec to COPY for higher quality and "
+                     "faster conversion times"
+                  << std::endl;
     }
 }
 
