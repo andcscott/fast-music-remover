@@ -1,7 +1,5 @@
 #include "FFmpegConfigManager.h"
 
-#include <unistd.h>
-
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -36,14 +34,11 @@ void FFmpegConfigManager::setCodecStrictness(CodecStrictness strictness) {
 }
 
 void FFmpegConfigManager::setInputFilePath(const fs::path inputFilePath) {
-    int read = access((inputFilePath.string().c_str()), R_OK);
-    if (read < 0 && errno == EACCES) {
-        throw std::runtime_error("Insufficient permissions to read input file!");
-    } else if (read < 0) {
-        throw std::runtime_error("Unable to read input file, are you sure it exists?");
-    } else {
-        m_globalSettings.inputFilePath = inputFilePath;
+    fs::perms p = fs::status(inputFilePath).permissions();
+    if ((p & fs::perms::owner_read) != fs::perms::owner_read) {
+        throw std::runtime_error("Error: Permission denied when reading input file");
     }
+    m_globalSettings.inputFilePath = inputFilePath;
 }
 
 void FFmpegConfigManager::setOutputFilePath(const fs::path outputFilePath) {
