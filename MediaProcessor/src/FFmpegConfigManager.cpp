@@ -130,51 +130,63 @@ void FFmpegConfigManager::updateSettings(const struct FFmpegGlobalSettings& glob
 
 // Validate Settings
 template <typename T>
-void FFmpegConfigManager::validateOption(const T optionValue, const T optionMax) {
-    if (optionValue > optionMax) {
+void FFmpegConfigManager::validateOption(const T value, const T min, const T max) {
+    if (((value - min) | (max - value)) < 0) {
         std::string codec =
             Utils::enumToString<AudioCodec>(getAudioCodec(), getAudioCodecAsString());
-        throw std::runtime_error("Invalid Audio Option \"" + std::to_string(optionValue) +
-                                 "\" : FFmpeg accepts a maximum of " + std::to_string(optionMax) +
-                                 " for " + codec);
+        throw std::runtime_error("Invalid Audio Option \"" + std::to_string(value) +
+                                 "\" : FFmpeg accepts values between " + std::to_string(min) +
+                                 " and " + std::to_string(max) + " for " + codec);
     }
 }
 
-template <typename T, std::size_t N>
-void FFmpegConfigManager::validateOption(const T optionValue,
-                                         const std::array<T, N>& validOptions) {
-    for (const T& valid : validOptions) {
-        if (m_audioSettings.sampleRate == valid) return;
+template <typename T>
+void FFmpegConfigManager::validateOption(const T value, const std::unordered_set<T>& options) {
+    if (std::find(options.begin(), options.end(), value) == options.end()) {
+        std::string codec =
+            Utils::enumToString<AudioCodec>(getAudioCodec(), getAudioCodecAsString());
+        std::ostringstream ssError;
+        ssError << "Invalid " + codec + " sample rate: FFmpeg supports ";
+        for (const T& opt : options) {
+            ssError << opt << " ";
+        }
+        throw std::runtime_error(ssError.str());
     }
-    std::string codec = Utils::enumToString<AudioCodec>(getAudioCodec(), getAudioCodecAsString());
-    std::ostringstream ssError;
-    ssError << "Invalid " + codec + " sample rate: FFmpeg supports ";
-    for (const T& opt : validOptions) {
-        ssError << opt << " ";
-    }
-    throw std::runtime_error(ssError.str());
 }
 
-// Validate Settings
+// Validate Config
 void FFmpegConfigManager::validateAudio() {
     switch (m_audioSettings.codec) {
-        case AudioCodec::AAC:
-            validateOption(m_audioSettings.numChannels, AAC_MAX_CHANNELS);
-            validateOption(m_audioSettings.sampleRate, AAC_SAMPLE_RATES);
+        case AudioCodec::AAC: {
+            auto& validOpts = m_validAudioOptions.AAC;
+            validateOption(m_audioSettings.numChannels, validOpts.minChannels,
+                           validOpts.maxChannels);
+            validateOption(m_audioSettings.sampleRate, validOpts.sampleRates);
             break;
-        case AudioCodec::MP3:
-            validateOption(m_audioSettings.numChannels, MP3_MAX_CHANNELS);
-            validateOption(m_audioSettings.sampleRate, MP3_SAMPLE_RATES);
+        }
+        case AudioCodec::MP3: {
+            auto& validOpts = m_validAudioOptions.MP3;
+            validateOption(m_audioSettings.numChannels, validOpts.minChannels,
+                           validOpts.maxChannels);
+            validateOption(m_audioSettings.sampleRate, validOpts.sampleRates);
             break;
-        case AudioCodec::FLAC:
-            validateOption(m_audioSettings.numChannels, FLAC_MAX_CHANNELS);
-            validateOption(m_audioSettings.sampleRate, FLAC_MAX_SAMPLE_RATE);
+        }
+        case AudioCodec::FLAC: {
+            auto& validOpts = m_validAudioOptions.FLAC;
+            validateOption(m_audioSettings.numChannels, validOpts.minChannels,
+                           validOpts.maxChannels);
+            validateOption(m_audioSettings.sampleRate, validOpts.minSampleRate,
+                           validOpts.maxSampleRate);
             break;
-        case AudioCodec::OPUS:
-            validateOption(m_audioSettings.numChannels, OPUS_MAX_CHANNELS);
-            validateOption(m_audioSettings.sampleRate, OPUS_SAMPLE_RATES);
+        }
+        case AudioCodec::OPUS: {
+            auto& validOpts = m_validAudioOptions.Opus;
+            validateOption(m_audioSettings.numChannels, validOpts.minChannels,
+                           validOpts.maxChannels);
+            validateOption(m_audioSettings.sampleRate, validOpts.sampleRates);
             break;
-        case AudioCodec::UNKNOWN:
+        }
+        case AudioCodec::UNKNOWN: {
             setAudioCodec(AudioCodec::AAC);
             setAudioChannels(2);
             setAudioSampleRate(48000);
@@ -182,6 +194,7 @@ void FFmpegConfigManager::validateAudio() {
                          "channels"
                       << std::endl;
             break;
+        }
         default:
             return;
     }

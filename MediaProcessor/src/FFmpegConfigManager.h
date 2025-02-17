@@ -167,7 +167,7 @@ class FFmpegConfigManager {
     void validateOption(const T optionValue, const std::unordered_set<T>& validOptions);
 
     template <typename T>
-    void validateOption(const T optionValue, const std::pair<T, T> optionMinMax);
+    void validateOption(const T optionValue, const T min, const T max);
 
     void validateAudio();
 };
