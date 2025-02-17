@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "ConfigManager.h"
@@ -96,30 +97,79 @@ class FFmpegConfigManager {
     std::unordered_map<VideoCodec, std::string> m_videoCodecAsString;
     std::unordered_map<CodecStrictness, std::string> m_codecStrictnessAsString;
 
-    // Channel # allowed options
-    static constexpr const int AAC_MAX_CHANNELS = 8;
-    static constexpr const int MP3_MAX_CHANNELS = 2;
-    static constexpr const int FLAC_MAX_CHANNELS = 8;
-    static constexpr const int OPUS_MAX_CHANNELS = 8;
+    struct ValidAudioOptions {
+        struct ValidOptionsAAC {
+            inline static const int minChannels = 1;
+            inline static const int maxChannels = 8;
+            inline static const int minBitrate = 96000;
+            inline static const int maxBitrate = 512000;
+            inline static const std::unordered_set<int> sampleRates = {
+                7350,  8000,  11025, 12000, 16000, 22050, 24000,
+                32000, 44100, 48000, 64000, 88200, 96000};
+        } AAC;
 
-    // Sample rate allowed options
-    static constexpr const std::array<int, 13> AAC_SAMPLE_RATES = {
-        7350, 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000, 88200, 96000};
-    static constexpr const std::array<int, 9> MP3_SAMPLE_RATES = {8000,  12000, 11025, 16000, 24000,
-                                                                  22050, 32000, 44100, 48000};
-    static constexpr const std::array<int, 5> OPUS_SAMPLE_RATES = {8000, 12000, 16000, 24000,
+        struct ValidOptionsMP3 {
+            inline static const int minChannels = 1;
+            inline static const int maxChannels = 2;
+            inline static const int minBitrate = 128000;
+            inline static const int maxBitrate = 320000;
+            inline static const std::unordered_set<int> sampleRates = {
+                8000, 12000, 11025, 16000, 24000, 22050, 32000, 44100, 48000};
+        } MP3;
+
+        struct ValidOptionsFLAC {
+            inline static const int minChannels = 1;
+            inline static const int maxChannels = 8;
+            inline static const int minSampleRate = 0;
+            inline static const int maxSampleRate = 1048575;
+        } FLAC;
+
+        struct ValidOptionsOpus {
+            inline static const int minChannels = 1;
+            inline static const int maxChannels = 8;
+            inline static const int minBitrate = 24000;
+            inline static const int maxBitrate = 512000;
+            inline static const std::unordered_set<int> sampleRates = {8000, 12000, 16000, 24000,
+                                                                       48000};
+        } Opus;
+
+    } inline static const m_validAudioOptions;
+
+    struct FFmpegValidSettingsAAC {
+        inline static const std::pair<int, int> minMaxChannels = {1, 8};
+        inline static const std::pair<int, int> minMaxBitRate = {96000, 512000};
+        inline static const std::unordered_set<int> sampleRates = {
+            7350,  8000,  11025, 12000, 16000, 22050, 24000,
+            32000, 44100, 48000, 64000, 88200, 96000};
+    } m_validSettingsAAC;
+
+    struct FFmpegValidSettingsMP3 {
+        inline static const std::pair<int, int> minMaxChannels = {1, 2};
+        inline static const std::pair<int, int> minMaxBitRate = {128000, 320000};
+        inline static const std::unordered_set<int> sampleRates = {
+            8000, 12000, 11025, 16000, 24000, 22050, 32000, 44100, 48000};
+    } m_validSettingsMP3;
+
+    struct FFmpegValidSettingsFLAC {
+        inline static const std::pair<int, int> minMaxChannels = {1, 8};
+        inline static const std::pair<int, int> minMaxSampleRates = {0, 1048575};
+    } m_validSettingsFLAC;
+
+    struct FFmpegValidSettingsOpus {
+        inline static const std::pair<int, int> minMaxChannels = {1, 8};
+        inline static const std::pair<int, int> minMaxBitRate = {64000, 512000};
+        inline static const std::unordered_set<int> sampleRates = {8000, 12000, 16000, 24000,
                                                                    48000};
-    static constexpr const int FLAC_MAX_SAMPLE_RATE = 1048575;
 
-    template <typename T, std::size_t N>
-    void validateOption(const T optionValue, const std::array<T, N>& validOptions);
+    } m_validSettingsOpus;
 
     template <typename T>
-    void validateOption(const T optionValue, const T optionMax);
+    void validateOption(const T optionValue, const std::unordered_set<T>& validOptions);
+
+    template <typename T>
+    void validateOption(const T optionValue, const std::pair<T, T> optionMinMax);
 
     void validateAudio();
-
-    void validateVideo();
 };
 
 }  // namespace MediaProcessor
